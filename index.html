@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulir Data Peserta</title>
+    <style>
+        /* CSS SEDERHANA UNTUK TAMPILAN RAPI */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            border-top: 10px solid #673ab7; /* Warna ungu seperti di gambar */
+        }
+        h2 { text-align: center; color: #333; margin-bottom: 20px; }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #444; }
+        
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Agar padding tidak merusak lebar */
+            font-size: 16px;
+        }
+
+        /* Styling Radio Button agar mirip gambar */
+        .radio-group { display: flex; flex-direction: column; gap: 10px; }
+        .radio-option { display: flex; align-items: center; gap: 10px; }
+        input[type="radio"] { transform: scale(1.2); }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #673ab7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #512da8; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* Notifikasi Sukses */
+        #notification {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Data Peserta</h2>
+    <form id="attendanceForm">
+        
+        <div class="form-group">
+            <label for="nama">Nama *</label>
+            <input type="text" id="nama" name="nama" placeholder="Jawaban Anda" required>
+        </div>
+
+        <div class="form-group">
+            <label>Jenis Kelamin *</label>
+            <div class="radio-group">
+                <label class="radio-option"><input type="radio" name="jenis_kelamin" value="Laki-laki" required> Laki-laki</label>
+                <label class="radio-option"><input type="radio" name="jenis_kelamin" value="Perempuan"> Perempuan</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Kategori Usia *</label>
+            <div class="radio-group">
+                <label class="radio-option"><input type="radio" name="usia" value="Pra remaja (13-15)" required> Pra remaja (13-15)</label>
+                <label class="radio-option"><input type="radio" name="usia" value="Remaja (16-18)"> Remaja (16-18)</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="desa">Desa *</label>
+            <select id="desa" name="desa" required onchange="updateKelompok()">
+                <option value="">Pilih Desa</option>
+                <option value="Banguntapan 1">Banguntapan 1</option>
+                <option value="Banguntapan 2">Banguntapan 2</option>
+                <option value="Gamping">Gamping</option>
+                <option value="Jetis">Jetis</option>
+                <option value="Kotagede">Kotagede</option>
+                <option value="Mantrijeron">Mantrijeron</option>
+                <option value="Sewon">Sewon</option>
+                <option value="Tamantirto">Tamantirto</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="group-container" style="display:none;">
+            <label for="kelompok">Kelompok *</label>
+            <select id="kelompok" name="kelompok" required>
+                <option value="">Pilih Kelompok</option>
+                </select>
+        </div>
+
+        <button type="submit" id="submitBtn">Kirim Data</button>
+    </form>
+
+    <div id="notification">✅ Data terkirim! Formulir akan direset...</div>
+</div>
+
+<script>
+    // --- 1. KONFIGURASI WEBHOOK N8N ---
+    // GANTI URL INI DENGAN URL WEBHOOK N8N KAMU (Method: POST)
+    const N8N_WEBHOOK_URL = "https://your-n8n-instance.com/webhook/path-kamu"; 
+
+    // --- 2. DATA MAPPING (Sesuai Gambar Kamu) ---
+    const dataKelompok = {
+        "Banguntapan 1": ["Bintaran", "Gedongkuning", "Jombor", "Sunten"],
+        "Banguntapan 2": ["Baturetno 1", "Baturetno 2", "Jambidan 1", "Jambidan 2"],
+        "Gamping": ["Al-Mahdiyyin", "Jatisawit", "Pedes", "Pajangan", "Kleben", "Sedayu", "Nyamplung"],
+        "Jetis": ["Bulus", "Ngetal", "Nogosari", "Kebonagung", "Pulokadang"],
+        "Kotagede": ["Dagaran", "Depokan 1", "Depokan 2", "Mutihan", "Tamtama 1", "Tamtama 3"],
+        "Mantrijeron": ["Daengan 1", "Daengan 2", "Gumuk Indah", "Ledoksari", "Ngestiharjo", "Tirtodipuran"],
+        "Sewon": ["Bantul Kota", "Diro", "Jogoripon", "Karangasem", "Krantil", "Sragan"],
+        "Tamantirto": ["Gonjen 1", "Gonjen 2", "Sembung", "Kembaran"]
+    };
+
+    // --- 3. FUNGSI UPDATE DROPDOWN KELOMPOK ---
+    function updateKelompok() {
+        const desaSelect = document.getElementById("desa");
+        const kelompokSelect = document.getElementById("kelompok");
+        const groupContainer = document.getElementById("group-container");
+        
+        const selectedDesa = desaSelect.value;
+
+        // Kosongkan opsi lama
+        kelompokSelect.innerHTML = '<option value="">Pilih Kelompok</option>';
+
+        if (selectedDesa && dataKelompok[selectedDesa]) {
+            // Munculkan dropdown kelompok
+            groupContainer.style.display = "block";
+            
+            // Isi opsi baru sesuai desa yang dipilih
+            dataKelompok[selectedDesa].forEach(kel => {
+                const option = document.createElement("option");
+                option.value = kel;
+                option.text = kel;
+                kelompokSelect.appendChild(option);
+            });
+        } else {
+            // Sembunyikan jika tidak ada desa dipilih
+            groupContainer.style.display = "none";
+        }
+    }
+
+    // --- 4. LOGIKA PENGIRIMAN DATA ---
+    document.getElementById("attendanceForm").addEventListener("submit", function(e) {
+        e.preventDefault(); // Mencegah reload halaman
+        
+        const btn = document.getElementById("submitBtn");
+        const notif = document.getElementById("notification");
+        
+        // Ambil data form
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        // Ubah tombol jadi loading
+        btn.textContent = "Mengirim...";
+        btn.disabled = true;
+
+        // Kirim ke n8n
+        fetch(N8N_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (response.ok) {
+                // Tampilkan notifikasi sukses
+                notif.style.display = "block";
+                notif.textContent = "✅ Data berhasil dikirim! Formulir direset...";
+                
+                // Reset Form
+                document.getElementById("attendanceForm").reset();
+                document.getElementById("group-container").style.display = "none";
+
+                // Hilangkan notifikasi setelah 3 detik
+                setTimeout(() => {
+                    notif.style.display = "none";
+                }, 3000);
+            } else {
+                alert("Gagal mengirim data. Cek koneksi atau Webhook n8n.");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("Terjadi kesalahan jaringan.");
+        })
+        .finally(() => {
+            // Kembalikan tombol seperti semula
+            btn.textContent = "Kirim Data";
+            btn.disabled = false;
+        });
+    });
+</script>
+
+</body>
+</html>
